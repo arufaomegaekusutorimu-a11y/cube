@@ -1,0 +1,1260 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>CUBE</title>
+    <style>
+        /* --- ファンタジーUIデザイン --- */
+        body {
+            margin: 0;
+            background: radial-gradient(circle at center, #2c3e50 0%, #000 100%);
+            font-family: 'Georgia', serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            color: #f1c40f;
+        }
+
+        /* --- ナビゲーションメニュー（ヘッダーとして独立） --- */
+        #nav-header {
+            background: rgba(0, 0, 0, 0.8);
+            border-bottom: 2px solid #f1c40f;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+            flex-shrink: 0;
+        }
+
+        #nav-menu {
+            display: flex;
+            gap: 15px;
+        }
+
+        .nav-btn {
+            background: rgba(26, 26, 26, 0.7);
+            border: 1px solid #f1c40f;
+            color: #f1c40f;
+            padding: 8px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: 0.3s;
+            font-weight: bold;
+        }
+
+        .nav-btn:hover:not(:disabled) {
+            background: #f1c40f;
+            color: #000;
+            box-shadow: 0 0 10px #f1c40f;
+        }
+
+        /* 強化ボタンが押せない時のスタイル */
+        .nav-btn:disabled {
+            background: #1a1a1a;
+            color: #444;
+            border-color: #444;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        /* --- モーダルウィンドウ共通 --- */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            max-width: 800px; /* 図鑑用に少し広く */
+            max-height: 85vh;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            border: 3px double #f1c40f;
+            border-radius: 15px;
+            z-index: 3000;
+            padding: 25px;
+            overflow-y: auto;
+            color: #fff;
+            box-shadow: 0 0 50px rgba(0,0,0,0.9), inset 0 0 20px rgba(241, 196, 15, 0.2);
+            /* スクロールバーを非表示にする設定 */
+            -ms-overflow-style: none; /* IE, Edge */
+            scrollbar-width: none;    /* Firefox */
+        }
+
+        /* Webkit用スクロールバー非表示設定 */
+        .modal::-webkit-scrollbar {
+            display: none;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #f1c40f;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 1.8em;
+            text-shadow: 2px 2px 4px #000;
+            letter-spacing: 3px;
+        }
+
+        .close-btn {
+            cursor: pointer;
+            font-size: 28px;
+            color: #f1c40f;
+            transition: 0.3s;
+        }
+        .close-btn:hover { transform: rotate(90deg); color: #fff; }
+
+        /* --- 図鑑UIの刷新 --- */
+        #encyclopedia-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 15px;
+            padding: 10px;
+        }
+
+        .encyclopedia-item {
+            position: relative;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(241, 196, 15, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: default;
+            overflow: hidden;
+            min-height: 200px;
+        }
+
+        .encyclopedia-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: #f1c40f;
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+        }
+
+        .encyclopedia-img {
+            width: 80px;
+            height: 80px;
+            object-fit: contain;
+            margin-bottom: 10px;
+            filter: drop-shadow(0 0 5px rgba(241, 196, 15, 0.5));
+            transition: 0.5s;
+        }
+
+        .encyclopedia-img.locked {
+            filter: brightness(0) invert(0.2) blur(2px);
+            opacity: 0.5;
+        }
+
+        .encyclopedia-name {
+            font-weight: bold;
+            color: #f1c40f;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+            height: 2.4em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .encyclopedia-rarity {
+            font-size: 0.7em;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: rgba(0,0,0,0.5);
+            margin-bottom: 8px;
+            border: 1px solid;
+        }
+
+        .encyclopedia-desc {
+            font-size: 0.7em;
+            color: #ccc;
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            margin-top: auto;
+        }
+
+        .encyclopedia-max-lv {
+            position: absolute;
+            top: 5px;
+            right: 8px;
+            font-size: 0.65em;
+            color: #00ffcc;
+            font-weight: bold;
+        }
+
+        /* 図鑑シャイニーバッジ用 */
+        .shiny-found-badge {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            background: linear-gradient(45deg, #f1c40f, #fff);
+            color: #000;
+            font-size: 0.6em;
+            font-weight: bold;
+            padding: 2px 5px;
+            border-radius: 3px;
+            box-shadow: 0 0 5px #f1c40f;
+            border: 1px solid #000;
+        }
+
+        /* --- 設定スタイル --- */
+        .setting-row { margin: 20px 0; display: flex; align-items: center; gap: 20px; }
+        .danger-btn { background: #e74c3c; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; }
+
+        /* ショップ用スタイル */
+        .shop-upgrade-section {
+            background: rgba(241, 196, 15, 0.1);
+            border: 1px solid #f1c40f;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .level-selector {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            margin: 15px 0;
+        }
+
+        .selector-btn {
+            background: #1a1a1a;
+            border: 1px solid #f1c40f;
+            color: #f1c40f;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .selector-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        .selector-btn:hover:not(:disabled) { background: #f1c40f; color: #000; }
+
+        /* --- 既存のスタイル --- */
+        #mana-counter {
+            font-size: 24px;
+            color: #00ffcc;
+            text-shadow: 0 0 10px #00ffcc;
+            background: rgba(0,0,0,0.5);
+            padding: 5px 15px;
+            border-radius: 20px;
+            border: 1px solid #00ffcc;
+            display: flex;
+            min-width: 80px;
+            transition: all 0.3s ease;
+            cursor: help;
+        }
+
+        .mana-label { text-align: left; }
+        .mana-value {
+            flex-grow: 1;
+            text-align: right;
+            opacity: 0;
+            width: 0;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            margin-left: 0;
+        }
+
+        #mana-counter:hover { min-width: 200px; }
+        #mana-counter:hover .mana-value { opacity: 1; width: auto; margin-left: 10px; }
+
+        #status-tooltip {
+            position: fixed;
+            display: none;
+            background: rgba(0, 0, 0, 0.9);
+            border: 1px solid #f1c40f;
+            color: #fff;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 2000;
+            pointer-events: none;
+            box-shadow: 0 0 15px rgba(241, 196, 15, 0.4);
+            line-height: 1.4;
+        }
+
+        h2 {
+            margin: 15px 20px;
+            color: #f1c40f;
+            text-shadow: 0 0 10px rgba(241, 196, 15, 0.5);
+            font-variant: small-caps;
+            letter-spacing: 2px;
+            border-bottom: 2px solid #f1c40f;
+            display: inline-block;
+            width: fit-content;
+        }
+
+        #main-content {
+            flex-grow: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #shop-area {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(5px);
+            padding: 25px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            border-bottom: 3px double #f1c40f;
+            flex-wrap: wrap;
+        }
+
+        .shop-slot {
+            width: 100px;
+            height: 140px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            padding: 10px;
+            border: 1px solid #444;
+        }
+
+        .buy-box {
+            width: 70px;
+            height: 70px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            filter: drop-shadow(0 0 5px #f1c40f);
+        }
+
+        .buy-box:hover:not(.sold-out-img) {
+            transform: translateY(-8px) scale(1.1);
+            filter: drop-shadow(0 0 15px #f1c40f);
+        }
+
+        .sold-out-img { filter: grayscale(1) opacity(0.2) !important; cursor: not-allowed; }
+
+        .buy-button {
+            background: linear-gradient(135deg, #d4af37 0%, #f1c40f 50%, #d4af37 100%);
+            color: #1a1a1a;
+            border: 1px solid #000;
+            padding: 6px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+            transition: 0.2s;
+        }
+
+        .buy-button:hover:not(:disabled) { transform: scale(1.05); box-shadow: 0 0 10px #f1c40f; }
+        .buy-button:disabled { opacity: 0.4; filter: grayscale(0.8); cursor: not-allowed; box-shadow: none; }
+
+        #collection-area, #deck-area {
+            padding: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            background-color: transparent;
+            align-content: flex-start;
+            justify-content: center;
+        }
+
+        #collection-area { flex-grow: 1; overflow-y: auto; }
+        #deck-area { background: rgba(0, 255, 204, 0.03); border-top: 1px solid rgba(0, 255, 204, 0.2); padding-bottom: 30px; }
+
+        .collected-item {
+            width: 110px;
+            height: 110px;
+            border: 2px solid rgba(241, 196, 15, 0.2);
+            background: rgba(255, 255, 255, 0.02);
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 15px;
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+        }
+
+        .has-item { border: 2px solid #f1c40f; background: rgba(241, 196, 15, 0.05); cursor: grab; }
+        .has-item:active { cursor: grabbing; }
+        .dragging { opacity: 0.5; transform: scale(0.8); }
+        .item-img { max-width: 65%; max-height: 65%; display: none; filter: drop-shadow(0 0 8px rgba(255,255,255,0.5)); pointer-events: none; }
+        .level-badge { font-size: 12px; color: #fff; background: rgba(0,0,0,0.5); padding: 2px 6px; border-radius: 10px; font-weight: bold; margin-top: 5px; display: none; pointer-events: none; }
+        .opened { border-color: #00ffcc; background: radial-gradient(circle, rgba(0,255,204,0.1) 0%, transparent 70%); box-shadow: 0 0 20px rgba(0,255,204,0.3); }
+
+        /* シャイニー（色違い）用の追加エフェクト */
+        .is-shiny {
+            box-shadow: 0 0 15px #fff, inset 0 0 10px #fff !important;
+            border-color: #fff !important;
+        }
+        .is-shiny .item-img {
+            filter: drop-shadow(0 0 12px #fff) hue-rotate(180deg) !important;
+        }
+
+        .rarity-S {
+            background: linear-gradient(124deg, #ff2400, #e81d1d, #e8b71d, #e3e81d, #1de840, #1ddde8, #2b1de8, #dd1de8, #dd1de8);
+            background-size: 1800% 1800%;
+            animation: rainbow 10s ease infinite;
+            border-color: #fff !important;
+        }
+        @keyframes rainbow { 0%{background-position:0% 82%} 50%{background-position:100% 19%} 100%{background-position:0% 82%} }
+        .rarity-A { background: rgba(255, 0, 0, 0.3) !important; border-color: #ff4d4d !important; }
+        .rarity-B { background: rgba(128, 0, 128, 0.3) !important; border-color: #e066ff !important; }
+        .rarity-C { background: rgba(0, 128, 0, 0.3) !important; border-color: #66ff66 !important; }
+        .rarity-D { background: rgba(100, 100, 100, 0.3) !important; border-color: #999 !important; }
+
+        #mana-shrine {
+            height: 80px;
+            margin: 10px 20px 10px 20px;
+            background: linear-gradient(0deg, rgba(0, 255, 204, 0.1), transparent);
+            border: 2px dashed #00ffcc;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #00ffcc;
+            font-weight: bold;
+            letter-spacing: 3px;
+            transition: all 0.3s;
+        }
+
+        #mana-shrine.drag-over { background: rgba(0, 255, 204, 0.2); transform: scale(1.02); box-shadow: 0 0 20px rgba(0, 255, 204, 0.4); }
+
+        #message-overlay {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(to right, transparent, rgba(0,0,0,0.9), transparent);
+            color: #fff;
+            text-shadow: 0 0 15px #00ffcc, 0 0 30px #00ffcc;
+            width: 100%;
+            text-align: center;
+            padding: 25px 0;
+            font-size: 2.5em;
+            font-style: italic;
+            letter-spacing: 5px;
+            pointer-events: none;
+            opacity: 0;
+            transition: all 0.4s ease;
+            z-index: 5000;
+            border-top: 1px solid #00ffcc;
+            border-bottom: 1px solid #00ffcc;
+        }
+    </style>
+</head>
+<body>
+
+    <header id="nav-header">
+        <nav id="nav-menu">
+            <button class="nav-btn" onclick="openModal('modal-encyclopedia')">図鑑</button>
+            <button class="nav-btn" onclick="openModal('modal-shop')">ショップ</button>
+            <button class="nav-btn" onclick="openModal('modal-settings')">設定</button>
+        </nav>
+        <div id="mana-counter">
+            <span class="mana-label">Mana</span>
+            <span id="mana-val" class="mana-value">0</span>
+        </div>
+    </header>
+
+    <div id="main-content">
+        <div id="status-tooltip"></div>
+        <div id="message-overlay">入手！ナチュラボックス</div>
+
+        <div id="modal-encyclopedia" class="modal">
+            <div class="modal-header">
+                <h3>📜 使い魔古文書</h3>
+                <span class="close-btn" onclick="closeModal('modal-encyclopedia')">&times;</span>
+            </div>
+            <div id="encyclopedia-list"></div>
+        </div>
+
+        <div id="modal-shop" class="modal">
+            <div class="modal-header">
+                <h3>魔法の道具屋・強化祭壇</h3>
+                <span class="close-btn" onclick="closeModal('modal-shop')">&times;</span>
+            </div>
+            <div id="shop-upgrade-ui">
+                </div>
+            <hr>
+            <p style="font-size: 0.9em; opacity: 0.8;">※キューブを強化すると、排出される使い魔の質が向上し、販売価格が上昇します。</p>
+        </div>
+
+        <div id="modal-settings" class="modal">
+            <div class="modal-header">
+                <h3>儀式の調整</h3>
+                <span class="close-btn" onclick="closeModal('modal-settings')">&times;</span>
+            </div>
+            <div class="setting-row">
+                <label>BGM Volume</label>
+                <input type="range" id="bgm-vol" min="0" max="1" step="0.1" value="0.5" onchange="updateVolume()">
+            </div>
+            <div class="setting-row">
+                <label>SE Volume</label>
+                <input type="range" id="se-vol" min="0" max="1" step="0.1" value="0.5" onchange="updateVolume()">
+            </div>
+            <hr>
+            <div class="setting-row">
+                <button class="danger-btn" onclick="resetData()">記憶の消去（データ初期化）</button>
+            </div>
+        </div>
+
+        <h2>◆ ミステリーキューブ <span id="refresh-timer" style="font-size: 0.6em; opacity: 0.8; margin-left: 10px; color: #00ffcc;"></span></h2>
+        <div id="shop-area"></div>
+
+        <h2>◆ 合成スロット</h2>
+        <div id="collection-area"></div>
+
+        <h2>◆ マナチャージスロット</h2>
+        <div id="deck-area"></div>
+
+        <div id="mana-shrine">ここにドラッグしてマナへ変換（売却）</div>
+    </div>
+
+<script>
+    const shopArea = document.getElementById('shop-area');
+    const collectionArea = document.getElementById('collection-area');
+    const deckArea = document.getElementById('deck-area');
+    const manaShrine = document.getElementById('mana-shrine');
+    const messageOverlay = document.getElementById('message-overlay');
+    const refreshTimer = document.getElementById('refresh-timer');
+    const manaValDisplay = document.getElementById('mana-val');
+    const tooltip = document.getElementById('status-tooltip');
+    
+    const MAX_STORAGE = 10;
+    const MAX_DECK = 5;
+    const REFRESH_INTERVAL = 30;
+
+    const CHAR_DATA = {
+        'oni.png': { name: '羅刹のキューブ', rarity: 'S', incomeMult: 1.2, desc: '古の戦場で散った鬼の魂が具現化した姿。その刃は空間をも切り裂き、周囲のマナを強制的に収束させる力を持つ。極めて高い魔力供給率を誇る伝説の存在。' },
+        'demon.png': { name: '獄炎のキューブ', rarity: 'S', incomeMult: 1.0, desc: '地獄の最下層から召喚された上位悪魔。常に周囲を焼き尽くすほどの熱量を放ち、負の感情を純粋な魔力へと変換する。その力は均衡を崩すほどに強大である。' },
+        'clock.png': { name: 'クロックキューブ', rarity: 'S', incomeMult: 0.8, desc: '時空の狭間に住まう謎多き存在。砂時計が刻むリズムに合わせて宇宙の法則を書き換え、効率的にマナを抽出する。彼の前では時間すらもただの概念に過ぎない。' },
+        'frost.png': { name: 'フロストキューブ', rarity: 'S', incomeMult: 1.2, desc: '全てを静止させる絶対零度の魔力を持つ。彼の周囲ではエントロピーが減少し、純粋な魔力が無限に生成される。' },
+        'eternal.png': { name: '永劫のキューブ', rarity: 'S', incomeMult: 1.1, desc: '終わりのない時間を司る神秘 of の存在。過去と未来からマナを吸い寄せ、現在に定着させる。' },
+        'ice.png': { name: '氷結のキューブ', rarity: 'A', incomeMult: 1.15, desc: '永久凍土の奥深くに眠っていた精霊。彼女が通る道は一瞬で氷に閉ざされ、静寂の中に高密度の魔力が結晶化する。冷徹だが契約者には忠実な守護者となる。' },
+        'rip.png': { name: '断罪のキューブ', rarity: 'A', incomeMult: 0.9, desc: '命の灯火を刈り取る死神の代行者。魂を刈り取る際に生じるエネルギーをマナとして精製する。不気味な外見に反して、魔力の精製プロセスは非常に合理的で美しい。' },
+        'Necromancer.png': { name: '死霊術キューブ', rarity: 'A', incomeMult: 1.0, desc: '死の境界線を操る禁忌の魔術師。滅びた魂を再構成し、強力なマナの供給源として使役する。' },
+        'angel.png': { name: '聖域の守護キューブ', rarity: 'A', incomeMult: 1.1, desc: '天界より遣わされた慈愛の象徴. その羽から放たれる輝きは周囲を浄化し、聖なるマナを溢れさせる。' },
+        'cyber-.png': { name: 'サイバー・キューブ', rarity: 'A', incomeMult: 1.1, desc: '電脳世界から現れたデジタル生命体。回路を流れる電子を魔力へ変換し、驚異的な情報処理能力で基地を最適化する。' },
+        'magma.png': { name: 'マグマ・キューブ', rarity: 'A', incomeMult: 1.05, desc: '活火山の深層で練り上げられた岩石の巨人。体内に流れる溶岩は無尽蔵の熱エネルギーを放ち、周囲の魔力を活性化させる。' },
+        'samurai.png': { name: '炎侍キューブ', rarity: 'A', incomeMult: 1.1, desc: '異国の地からやってきた剣の達人。研ぎ澄まされた集中力はマナの乱れを斬り伏せ、純度の高い魔力循環を生み出す。' },
+        'Shinobi.png': { name: '闇忍キューブ', rarity: 'A', incomeMult: 1.2, desc: '姿を見せず任務を遂行する影の工作員。隠密回路を駆使して虚空から微細な魔力を効率よく収集し、主へと捧げる。' },
+        'treasure.png': { name: 'ゴーストキューブ', rarity: 'B', incomeMult: 1.1, desc: '強欲な王の執念が金貨に宿った姿。物質的な富を霊的なエネルギーへ変換する特異な体質を持つ。成仏できない悲しみさえも、今は基地の貴重な動力源となっている。' },
+        'sweet.png': { name: '甘美なキューブ', rarity: 'B', incomeMult: 1.0, desc: '人々の欲望を糧にする夢魔の眷属。甘い香りでマナの霧を引き寄せ、自らの糧とする。攻撃力は低いが、安定した魔力供給を得意とするため、使い勝手が非常に良い。' },
+        'night.png': { name: '常闇のキューブ', rarity: 'B', incomeMult: 0.85, desc: '影の中に潜むことを許された漆黒の鎧。主人の命に従い、暗闇に漂う微細な魔力を盾に集めて圧縮する。地味ながらも堅実な働きを見せる、信頼の置ける使い魔。' },
+        'pirate.png': { name: '幽霊船キューブ', rarity: 'B', incomeMult: 0.95, desc: '荒れ狂う海で消えた海賊の魂。略奪の本能は消えておらず、虚空からマナをかき集めてくる。' },
+        'punk.png': { name: '叛逆のキューブ', rarity: 'B', incomeMult: 1.0, desc: '秩序を嫌うパンクロッカーの魂。激しいビートに乗せてマナを激動させ、瞬間的な出力を高める。' },
+        'steam.png': { name: '蒸気キューブ', rarity: 'B', incomeMult: 1.05, desc: '歯車と蒸気を愛する異世界の技術者。魔力回路を機械的に最適化し、安定したマナの流れを作り出す。' },
+        'joker.png': { name: '道化師キューブ', rarity: 'B', incomeMult: 0.9, desc: '予測不能な行動で周囲を翻弄する奇術師。マナの法則を書き換え、予想外の増幅を引き起こす。' },
+        'psycho.png': { name: '虚無のキューブ', rarity: 'B', incomeMult: 1.1, desc: '壊れた心が生み出す異質なエネルギー。その制御不能な力は、時として爆発的なマナを生む。' },
+        'witch.png': { name: '深淵のキューブ', rarity: 'B', incomeMult: 1.0, desc: '失われた秘術を継承する魔女。古の契約に基づき、自然界からマナを効率よく抽出する。' },
+        'nature.png': { name: '精霊キューブ', rarity: 'C', incomeMult: 1.1, desc: '大自然の息吹から生まれた下級精霊。太陽の光と大地の恵みを呼吸のようにマナへと変える。個々の力は弱いが、自然界の調和を保つためには欠かせない存在。' },
+        'mash.png': { name: 'キノコキューブ', rarity: 'C', incomeMult: 0.9, desc: '何百年も生き延びた魔法キノコ。胞子を撒き散らして周囲の魔力密度を微増させる。のんびりした性格だが、その知識は深く、稀に有益なマナの循環を助ける。' },
+        'honey.png': { name: 'ハチミツキューブ', rarity: 'C', incomeMult: 1.0, desc: '甘い蜜を運ぶ小さな妖精。マナを蜜のように凝縮し、貯蔵する能力を持つ。' },
+        'cactus.png': { name: 'トゲキューブ', rarity: 'C', incomeMult: 0.85, desc: '乾燥地帯で生き抜くタフな植物。過酷な環境でも微量なマナを吸収し、体内に蓄え続ける。' },
+        'mummy.png': { name: 'ミイラキューブ', rarity: 'C', incomeMult: 0.9, desc: '呪いの包帯を巻いた不死者。永い眠りの中で溜め込んだ古のマナを少しずつ放出する。' },
+        'water.png': { name: 'ウォーターキューブ', rarity: 'C', incomeMult: 1.0, desc: '清らかな水から生まれた精霊。淀んだマナを洗い流し、循環をスムーズにする。' },
+        'fire.png': { name: '灯火のキューブ', rarity: 'C', incomeMult: 1.0, desc: '消えそうで消えない不思議な火。周囲のマナを燃焼させ、純粋なエネルギーへと変換する。' },
+        'hero.png': { name: 'Hero', rarity: 'D', incomeMult: 1.0, desc: '異世界から迷い込んだ伝説の勇者。レベルという概念を超越しており、常に一定のマナ（1000/sec）を供給する。合成はできないが、安定感は抜群。' }
+    };
+
+    let currentItemCount = 0;
+    let draggedElement = null;
+    
+    // 保存データの読み込み
+    let savedData = JSON.parse(localStorage.getItem('natura_base_save')) || {};
+    let totalMana = savedData.mana || 10000;
+    let unlockedChars = savedData.unlocked || [];
+    let unlockedShinies = savedData.unlockedShinies || []; // シャイニー発見記録用
+    let maxLevels = savedData.maxLevels || {}; // 最高レベル記録用
+    let timeLeft = savedData.shopTime !== undefined ? savedData.shopTime : REFRESH_INTERVAL;
+    let boxLevel = savedData.boxLevel || 1; 
+    let maxUnlockedBoxLevel = savedData.maxUnlockedBoxLevel || 1; // 解放済みの最高ボックスレベル
+    let shopInventory = savedData.shopInventory || null; // ショップの売り切れ状態
+
+    const bgm = new Audio('bgm.mp3');
+    bgm.loop = true;
+    const seShopRefresh = new Audio('shop.mp3');
+    const seCombine = new Audio('re.mp3');
+    const seCash = new Audio('cash.mp3');
+    const seBox = new Audio('box.mp3');
+    const seSell = new Audio('sell.mp3');
+
+    // ボリューム初期化
+    bgm.volume = savedData.bgmVol !== undefined ? savedData.bgmVol : 0.5;
+    [seShopRefresh, seCombine, seCash, seBox, seSell].forEach(s => s.volume = savedData.seVol !== undefined ? savedData.seVol : 0.5);
+
+    function saveData() {
+        const collectionSlots = Array.from(document.querySelectorAll('#collection-area .collected-item')).map(s => getSlotState(s));
+        const deckSlots = Array.from(document.querySelectorAll('#deck-area .collected-item')).map(s => getSlotState(s));
+        
+        // ショップの在庫状況（売り切れかどうか）を取得
+        const shopSlots = Array.from(document.querySelectorAll('.buy-button')).map(btn => btn.innerText === '契約済み');
+
+        const data = {
+            mana: totalMana,
+            unlocked: unlockedChars,
+            unlockedShinies: unlockedShinies, // 保存
+            maxLevels: maxLevels, 
+            bgmVol: bgm.volume,
+            seVol: seCombine.volume,
+            collection: collectionSlots,
+            deck: deckSlots,
+            shopTime: timeLeft,
+            boxLevel: boxLevel,
+            maxUnlockedBoxLevel: maxUnlockedBoxLevel,
+            shopInventory: shopSlots 
+        };
+        localStorage.setItem('natura_base_save', JSON.stringify(data));
+    }
+
+    function getSlotState(slot) {
+        if (!slot.classList.contains('has-item')) return null;
+        const img = slot.querySelector('.item-img');
+        return {
+            img: img ? img.src.split('/').pop() : null,
+            level: slot.dataset.level,
+            isSpecial: slot.dataset.isSpecial,
+            opened: slot.classList.contains('opened')
+        };
+    }
+
+    function loadGameProgress() {
+        if (savedData.collection) {
+            const slots = document.querySelectorAll('#collection-area .collected-item');
+            savedData.collection.forEach((state, i) => { if(state) restoreSlot(slots[i], state); });
+        }
+        if (savedData.deck) {
+            const slots = document.querySelectorAll('#deck-area .collected-item');
+            savedData.deck.forEach((state, i) => { if(state) restoreSlot(slots[i], state); });
+        }
+        updateManaUI();
+    }
+
+    function restoreSlot(slot, state) {
+        slot.classList.add('has-item');
+        slot.draggable = true;
+        slot.dataset.level = state.level;
+        slot.dataset.isSpecial = state.isSpecial;
+        
+        const img = document.createElement('img');
+        img.src = state.img;
+        img.className = 'item-img';
+        img.style.display = 'block';
+        
+        const badge = document.createElement('div');
+        badge.className = 'level-badge';
+        
+        slot.appendChild(img);
+        slot.appendChild(badge);
+        
+        if (state.opened) {
+            const data = CHAR_DATA[state.img];
+            if (data) slot.classList.add(`rarity-${data.rarity}`, 'opened');
+            if (state.isSpecial === "true") slot.classList.add('is-shiny');
+            updateLevelDisplay(slot);
+        } else {
+            slot.onclick = () => openAction(slot);
+        }
+        currentItemCount++;
+    }
+
+    function openModal(id) {
+        // すべてのモーダルを一旦閉じる
+        const modals = document.querySelectorAll('.modal');
+        modals.forEach(modal => modal.style.display = 'none');
+
+        if(id === 'modal-encyclopedia') updateEncyclopediaUI();
+        if(id === 'modal-shop') updateShopUpgradeUI(); // ショップUIを更新
+        document.getElementById(id).style.display = 'block';
+    }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+    // ショップ内のアップグレードUIを生成する関数
+    function updateShopUpgradeUI() {
+        const container = document.getElementById('shop-upgrade-ui');
+        let upgradePrices = {1: 5000000, 2: 50000000, 3: 500000000};
+        let nextPrice = upgradePrices[maxUnlockedBoxLevel];
+        
+        let levelText = boxLevel === 4 ? "MAX" : boxLevel;
+
+        let html = `
+            <div class="shop-upgrade-section">
+                <h4>ボックスレベル調整</h4>
+                <div class="level-selector">
+                    <button class="selector-btn" onclick="changeBoxLevel(-1)" ${boxLevel <= 1 ? 'disabled' : ''}>&lt;</button>
+                    <span style="color:#f1c40f; font-size:1.8em; font-weight:bold; width: 60px;">Lv.${levelText}</span>
+                    <button class="selector-btn" onclick="changeBoxLevel(1)" ${boxLevel >= maxUnlockedBoxLevel ? 'disabled' : ''}>&gt;</button>
+                </div>
+                <p style="font-size: 0.8em; color: #aaa;">(解放済みのレベル範囲内で自由に調整可能です)</p>
+        `;
+
+        if (maxUnlockedBoxLevel < 4) {
+            html += `
+                <hr style="border: 0.5px solid rgba(241,196,15,0.3); margin: 20px 0;">
+                <p>次のレベルの解放費用: <span style="color:#00ffcc;">${formatMana(nextPrice)} Mana</span></p>
+                <button class="nav-btn" id="upgrade-box-btn" onclick="upgradeBox(${nextPrice})" ${totalMana < nextPrice ? 'disabled' : ''}>
+                    上位レベルを解放する (Lv.${maxUnlockedBoxLevel} → ${maxUnlockedBoxLevel + 1})
+                </button>
+            `;
+        } else {
+            html += `<p style="color:#00ffcc; margin-top:15px;">全てのレベルが解放されています。</p>`;
+        }
+        html += `</div>`;
+        container.innerHTML = html;
+    }
+
+    function changeBoxLevel(diff) {
+        const newLevel = boxLevel + diff;
+        // 解放済みの最高レベル（maxUnlockedBoxLevel）を超えない範囲で自由に調整可能
+        if (newLevel >= 1 && newLevel <= maxUnlockedBoxLevel) {
+            boxLevel = newLevel;
+            updateShopUpgradeUI();
+            initShop();
+            saveData();
+            showGetMessage(`キューブ Lv.${boxLevel} に調整しました`);
+        }
+    }
+
+    function upgradeBox(price) {
+        if (totalMana < price) return;
+        totalMana -= price;
+        maxUnlockedBoxLevel++;
+        boxLevel = maxUnlockedBoxLevel; // 解放したら自動でそのレベルにする
+        playSound(seCash);
+        showGetMessage(`新レベル解放！ Lv.${maxUnlockedBoxLevel}`);
+        updateShopUpgradeUI();
+        updateManaUI();
+        initShop(); // ショップの商品価格を更新するために再起動
+        saveData();
+    }
+
+    function updateVolume() {
+        bgm.volume = document.getElementById('bgm-vol').value;
+        const sv = document.getElementById('se-vol').value;
+        [seShopRefresh, seCombine, seCash, seBox, seSell].forEach(s => s.volume = sv);
+        saveData();
+    }
+
+    function resetData() {
+        if(confirm("全ての記憶を消去しますか？（最初からやり直しになります）")) {
+            localStorage.removeItem('natura_base_save');
+            location.reload();
+        }
+    }
+
+    function updateEncyclopediaUI() {
+        const list = document.getElementById('encyclopedia-list');
+        list.innerHTML = '';
+        
+        // レアリティ順に並び替え
+        const rarityOrder = { 'S': 0, 'A': 1, 'B': 2, 'C': 3, 'D': 4 };
+        const sortedKeys = Object.keys(CHAR_DATA).sort((a, b) => {
+            return rarityOrder[CHAR_DATA[a].rarity] - rarityOrder[CHAR_DATA[b].rarity];
+        });
+
+        sortedKeys.forEach(key => {
+            const data = CHAR_DATA[key];
+            const isUnlocked = unlockedChars.includes(key);
+            const isShinyUnlocked = unlockedShinies.includes(key); // シャイニー発見済みか
+            const mLevel = maxLevels[key] || 0;
+            const item = document.createElement('div');
+            item.className = 'encyclopedia-item';
+            
+            // 色分け用のクラスを適用（解放時のみ）
+            if (isUnlocked) {
+                item.style.borderColor = getRarityColor(data.rarity);
+            }
+
+            item.innerHTML = `
+                ${isUnlocked && key !== 'hero.png' ? `<div class="encyclopedia-max-lv">MAX LV: ${mLevel}</div>` : ''}
+                ${isShinyUnlocked ? `<div class="shiny-found-badge">★Shiny Found!</div>` : ''}
+                <img src="${key}" class="encyclopedia-img ${isUnlocked ? '' : 'locked'}">
+                <div class="encyclopedia-rarity" style="color:${getRarityColor(data.rarity)}; border-color:${getRarityColor(data.rarity)}">
+                    ${data.rarity} Class
+                </div>
+                <div class="encyclopedia-name">${isUnlocked ? data.name : '？？？？'}</div>
+                <div class="encyclopedia-desc">${isUnlocked ? data.desc : '未契約のキューブです。召喚して情報を開示してください。'}</div>
+            `;
+            list.appendChild(item);
+        });
+    }
+
+    function getRarityColor(rarity) {
+        switch(rarity) {
+            case 'S': return '#ff4500';
+            case 'A': return '#ff4d4d';
+            case 'B': return '#e066ff';
+            case 'C': return '#66ff66';
+            case 'D': return '#ffffff';
+            default: return '#f1c40f';
+        }
+    }
+
+    function playSound(sound) {
+        sound.currentTime = 0;
+        sound.play().catch(e => console.log("Audio play blocked"));
+    }
+
+    function startBGM() {
+        bgm.play().catch(e => console.log("BGM play waiting"));
+    }
+
+    function formatMana(val) {
+        if (val < 1000) return Math.floor(val);
+        const units = ["", "k", "m", "g", "t", "p", "e", "z", "y"];
+        const i = Math.floor(Math.log(val) / Math.log(1000));
+        return (val / Math.pow(1000, i)).toFixed(2) + units[i];
+    }
+
+    function calculateIncome(slot) {
+        if (!slot.classList.contains('opened')) return 0;
+        const level = parseInt(slot.dataset.level);
+        let base = 0;
+        const imgPath = slot.querySelector('.item-img').src.split('/').pop();
+        const data = CHAR_DATA[imgPath];
+        if (!data) return 0;
+        
+        if (data.rarity === 'S') base = 30000;
+        else if (data.rarity === 'A') base = 7500;
+        else if (data.rarity === 'B') base = 3500;
+        else if (data.rarity === 'C') base = 1000;
+        else if (data.rarity === 'D') return 1000; // Heroは固定1000
+        
+        let income = base * level * (data.incomeMult || 1.0);
+        
+        // シャイニー（色違い）ボーナス：生産率5倍
+        if (slot.dataset.isSpecial === "true") {
+            income *= 5.0;
+        }
+        
+        return income; 
+    }
+
+    function updateManaUI() {
+        manaValDisplay.innerText = formatMana(totalMana);
+        const buyButtons = document.querySelectorAll('.buy-button');
+        buyButtons.forEach(btn => {
+            if (btn.innerText !== '契約済み' && btn.innerText !== 'FREE HERO') {
+                const price = parseInt(btn.dataset.price);
+                btn.disabled = (totalMana < price);
+            }
+        });
+        
+        // 上位レベル解放ボタンの有効無効状態のみを更新（再描画によるチラつき防止）
+        const upgradeBtn = document.getElementById('upgrade-box-btn');
+        if (upgradeBtn) {
+            let upgradePrices = {1: 5000000, 2: 50000000, 3: 500000000};
+            let nextPrice = upgradePrices[maxUnlockedBoxLevel];
+            if (nextPrice !== undefined) {
+                upgradeBtn.disabled = (totalMana < nextPrice);
+            }
+        }
+    }
+
+    function chargeMana() {
+        const deckSlots = document.querySelectorAll('#deck-area .collected-item.opened');
+        let income = 0;
+        deckSlots.forEach(slot => {
+            const perSec = calculateIncome(slot);
+            income += perSec / 10; // 0.1秒ごとの加算
+        });
+        totalMana += income;
+        updateManaUI();
+        if(Math.random() < 0.005) saveData();
+    }
+    setInterval(chargeMana, 100);
+
+    function showGetMessage(text) {
+        messageOverlay.innerText = text;
+        messageOverlay.style.opacity = '1';
+        setTimeout(() => messageOverlay.style.opacity = '0', 2000);
+    }
+
+    function createSlot(idPrefix, index) {
+        const slot = document.createElement('div');
+        slot.className = 'collected-item';
+        slot.id = `${idPrefix}-${index}`;
+        slot.dataset.level = 1;
+
+        slot.addEventListener('dragstart', (e) => {
+            if (!slot.classList.contains('has-item')) { e.preventDefault(); return; }
+            draggedElement = slot;
+            slot.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        });
+
+        slot.addEventListener('dragend', () => {
+            slot.classList.remove('dragging');
+            draggedElement = null;
+            saveData();
+        });
+
+        slot.addEventListener('mouseenter', (e) => {
+            if (!slot.classList.contains('opened')) return;
+            const imgPath = slot.querySelector('.item-img').src.split('/').pop();
+            const charName = CHAR_DATA[imgPath]?.name || "不明";
+            let rarity = CHAR_DATA[imgPath]?.rarity || "C";
+            const income = calculateIncome(slot);
+            const shinyText = slot.dataset.isSpecial === "true" ? "<br><span style='color:#fff; text-shadow:0 0 5px #fff;'>★Shiny (x5 Mana)★</span>" : "";
+            tooltip.innerHTML = `<strong>Name: <span style="color:#00ffcc">${charName}</span></strong><br><strong>Rare: <span style="color:#f1c40f">${rarity}</span></strong>${shinyText}<br>Lv: ${rarity === 'D' ? '-' : slot.dataset.level}<br>Income: ${formatMana(income)}/sec`;
+            tooltip.style.display = 'block';
+        });
+
+        slot.addEventListener('mousemove', (e) => {
+            tooltip.style.left = (e.clientX + 15) + 'px';
+            tooltip.style.top = (e.clientY + 15) + 'px';
+        });
+
+        slot.addEventListener('mouseleave', () => tooltip.style.display = 'none');
+        slot.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+        slot.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (draggedElement && draggedElement !== slot) {
+                const isTargetInCollection = slot.closest('#collection-area') !== null;
+                const srcImg = draggedElement.querySelector('.item-img')?.src;
+                const destImg = slot.querySelector('.item-img')?.src;
+                
+                // Heroは合成不可
+                const isHero = srcImg && srcImg.includes('hero.png');
+
+                // 通常個体とシャイニー個体は合成不可（isSpecialが一致する必要がある）
+                const isSameType = draggedElement.dataset.isSpecial === slot.dataset.isSpecial;
+
+                if (!isHero && isTargetInCollection && draggedElement.classList.contains('opened') && slot.classList.contains('opened') && srcImg === destImg && isSameType) {
+                    combineItems(draggedElement, slot);
+                } else {
+                    swapSlots(draggedElement, slot);
+                }
+                saveData();
+            }
+        });
+        return slot;
+    }
+
+    function initBase() {
+        for (let i = 0; i < MAX_STORAGE; i++) collectionArea.appendChild(createSlot('slot', i));
+        for (let i = 0; i < MAX_DECK; i++) deckArea.appendChild(createSlot('deck', i));
+    }
+
+    function combineItems(src, dest) {
+        let lvSrc = parseInt(src.dataset.level);
+        let lvDest = parseInt(dest.dataset.level);
+        
+        // よりレベルが高い方を基準にして+1する
+        let baseLv = Math.max(lvSrc, lvDest);
+        
+        if (baseLv >= 999) return; 
+        let newLv = baseLv + 1;
+        
+        dest.dataset.level = newLv;
+        
+        // 合成時にどちらかがシャイニーならシャイニーを引き継ぐ（現在の仕様では同じタイプしか合成されない）
+        if (src.dataset.isSpecial === "true" || dest.dataset.isSpecial === "true") {
+            dest.dataset.isSpecial = "true";
+            dest.classList.add('is-shiny');
+        }
+
+        // 最高レベルの記録を更新
+        const imgPath = dest.querySelector('.item-img').src.split('/').pop();
+        if(!maxLevels[imgPath] || newLv > maxLevels[imgPath]) maxLevels[imgPath] = newLv;
+
+        playSound(seCombine);
+        dest.style.transform = 'scale(1.2) rotate(10deg)';
+        setTimeout(() => dest.style.transform = 'rotate(360deg)', 200);
+        updateLevelDisplay(dest);
+        showGetMessage(`合成成功！ Lv.${newLv}`);
+        clearSlot(src);
+        saveData();
+    }
+
+    function updateLevelDisplay(slot) {
+        const badge = slot.querySelector('.level-badge');
+        if (badge) {
+            const imgPath = slot.querySelector('.item-img')?.src || "";
+            if (imgPath.includes('hero.png')) {
+                badge.style.display = 'none';
+                return;
+            }
+            const lv = parseInt(slot.dataset.level);
+            badge.innerText = `Lv.${lv}`;
+            badge.style.display = 'block';
+        }
+    }
+
+    function clearSlot(slot) {
+        slot.style.transition = 'none';
+        slot.style.transform = 'none';
+        slot.innerHTML = '';
+        slot.className = 'collected-item';
+        slot.draggable = false;
+        slot.dataset.level = 1;
+        slot.dataset.isSpecial = "false";
+        slot.onclick = null;
+        slot.offsetHeight; 
+        slot.style.transition = 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+        currentItemCount--;
+    }
+
+    manaShrine.addEventListener('dragover', (e) => { e.preventDefault(); manaShrine.classList.add('drag-over'); });
+    manaShrine.addEventListener('dragleave', () => { manaShrine.classList.remove('drag-over'); });
+    manaShrine.addEventListener('drop', (e) => {
+        e.preventDefault();
+        manaShrine.classList.remove('drag-over');
+        if (draggedElement) sellItem(draggedElement);
+    });
+
+    function sellItem(slot) {
+        const imgPath = slot.querySelector('.item-img')?.src || "";
+        let sellPrice = 0;
+        
+        if (!imgPath.includes('hero.png')) {
+            const income = calculateIncome(slot);
+            sellPrice = income * 10;
+        }
+
+        totalMana += sellPrice;
+        playSound(seSell);
+        clearSlot(slot);
+        showGetMessage(`マナへと変換！ +${formatMana(sellPrice)}獲得`);
+        updateManaUI();
+        saveData();
+    }
+
+    function swapSlots(src, dest) {
+        src.style.transition = 'none';
+        dest.style.transition = 'none';
+        const tempHtml = src.innerHTML;
+        const tempClass = src.className;
+        const tempLv = src.dataset.level;
+        const tempDraggable = src.draggable;
+        const tempSpecial = src.dataset.isSpecial;
+        src.innerHTML = dest.innerHTML;
+        src.className = dest.className;
+        src.dataset.level = dest.dataset.level;
+        src.dataset.isSpecial = dest.dataset.isSpecial;
+        src.draggable = dest.draggable;
+        dest.innerHTML = tempHtml;
+        dest.className = tempClass;
+        dest.dataset.level = tempLv;
+        dest.dataset.isSpecial = tempSpecial;
+        dest.draggable = tempDraggable;
+        src.classList.remove('dragging');
+        dest.classList.remove('dragging');
+        src.onclick = (src.classList.contains('has-item') && !src.classList.contains('opened')) ? () => openAction(src) : null;
+        dest.onclick = (dest.classList.contains('has-item') && !dest.classList.contains('opened')) ? () => openAction(dest) : null;
+        requestAnimationFrame(() => { src.style.transition = ''; dest.style.transition = ''; });
+    }
+
+    function initShop() {
+        shopArea.innerHTML = ''; 
+        for (let i = 0; i < 10; i++) { 
+            const slot = document.createElement('div');
+            slot.className = 'shop-slot';
+            const box = document.createElement('img');
+            const btn = document.createElement('button');
+            btn.className = 'buy-button';
+
+            let isHero = (i === 0);
+            
+            if (isHero) {
+                box.src = 'hero.png';
+                btn.innerText = "FREE HERO";
+                btn.dataset.price = 0;
+            } else {
+                box.src = 'box.png';
+                // レベルに応じた販売価格
+                let boxPrices = {1: 100000, 2: 1000000, 3: 10000000, 4: 100000000};
+                let price = boxPrices[boxLevel];
+                btn.dataset.price = price;
+                btn.innerText = `${formatMana(price)} Mana`;
+            }
+
+            box.className = 'buy-box';
+
+            // ロードされた在庫状況があれば復元
+            if (shopInventory && shopInventory[i]) {
+                btn.disabled = true;
+                btn.innerText = '契約済み';
+                box.classList.add('sold-out-img');
+            }
+            
+            const purchaseAction = () => {
+                if (btn.innerText === '契約済み') return;
+                startBGM();
+                let price = parseInt(btn.dataset.price);
+                if (totalMana < price) { showGetMessage("マナが足りません！"); return; }
+
+                const collectionSlots = Array.from(document.querySelectorAll('#collection-area .collected-item'));
+                const targetSlot = collectionSlots.find(s => !s.classList.contains('has-item'));
+                if (targetSlot) {
+                    totalMana -= price;
+                    playSound(seCash);
+                    if (isHero) {
+                        collectHeroToSlot(targetSlot);
+                    } else {
+                        collectBoxToSlot(targetSlot, false);
+                        btn.disabled = true;
+                        btn.innerText = '契約済み';
+                        box.classList.add('sold-out-img');
+                    }
+                    currentItemCount++;
+                    updateManaUI();
+                    saveData();
+                } else { showGetMessage("スロットに空きがありません！"); }
+            };
+            box.onclick = purchaseAction;
+            btn.onclick = purchaseAction;
+            slot.appendChild(box);
+            slot.appendChild(btn);
+            shopArea.appendChild(slot);
+        }
+        if(window.isFirstLoad === false) { playSound(seShopRefresh); showGetMessage("ミステリーキューブが更新されました"); }
+        window.isFirstLoad = false;
+    }
+
+    function updateTimer() {
+        refreshTimer.innerText = `( 更新まで: ${timeLeft}秒 )`;
+        if (timeLeft <= 0) {
+            timeLeft = REFRESH_INTERVAL;
+            shopInventory = null; // 在庫データをクリア
+            initShop();
+        }
+        timeLeft--;
+        if(timeLeft % 5 === 0) saveData(); 
+    }
+    setInterval(updateTimer, 1000);
+
+    function openAction(targetSlot) {
+        if (targetSlot.classList.contains('has-item') && !targetSlot.classList.contains('opened')) {
+            playSound(seBox);
+            
+            // ボックスレベルに応じた確率設定
+            const roll = Math.random() * 100;
+            let targetRarity = 'C';
+            
+            if (boxLevel === 1) {
+                if (roll < 1) targetRarity = 'A';
+                else if (roll < 20) targetRarity = 'B';
+                else targetRarity = 'C';
+            } else if (boxLevel === 2) {
+                if (roll < 1) targetRarity = 'S';
+                else if (roll < 20) targetRarity = 'A';
+                else if (roll < 50) targetRarity = 'B';
+                else targetRarity = 'C';
+            } else if (boxLevel === 3) {
+                if (roll < 5) targetRarity = 'S';
+                else if (roll < 30) targetRarity = 'A';
+                else if (roll < 60) targetRarity = 'B';
+                else targetRarity = 'C';
+            } else { // Level MAX
+                if (roll < 30) targetRarity = 'S';      // 0〜29.9... (30%)
+                else if (roll < 70) targetRarity = 'A'; // 30〜69.9... (40%)
+                else if (roll < 90) targetRarity = 'B'; // 70〜89.9... (20%)
+                else targetRarity = 'C';                // 90〜100 (10%)
+            }
+
+            const possibleChars = Object.keys(CHAR_DATA).filter(k => CHAR_DATA[k].rarity === targetRarity);
+            const randomChar = possibleChars[Math.floor(Math.random() * possibleChars.length)];
+            const data = CHAR_DATA[randomChar];
+            
+            if(!unlockedChars.includes(randomChar)) {
+                unlockedChars.push(randomChar);
+                showGetMessage(`新種のキューブ「${data.name}」を発見！`);
+            }
+            
+            // 0.1%の確率でシャイニー個体（色違い）に
+            if (Math.random() < 0.001) {
+                targetSlot.dataset.isSpecial = "true";
+                targetSlot.classList.add('is-shiny');
+                // シャイニー個体はLv 1〜100 のランダムで生成
+                const randomLv = Math.floor(Math.random() * 100) + 1;
+                targetSlot.dataset.level = randomLv;
+                
+                // 図鑑用のシャイニー発見記録
+                if(!unlockedShinies.includes(randomChar)) {
+                    unlockedShinies.push(randomChar);
+                }
+                
+                showGetMessage(`★シャイニー個体！「${data.name}」Lv.${randomLv}★`);
+            } else {
+                targetSlot.dataset.level = 1;
+            }
+
+            // 最高レベルの記録
+            const currentLv = parseInt(targetSlot.dataset.level);
+            if(!maxLevels[randomChar] || currentLv > maxLevels[randomChar]) maxLevels[randomChar] = currentLv;
+
+            const currentImg = targetSlot.querySelector('.item-img');
+            if(currentImg) currentImg.src = randomChar;
+            targetSlot.classList.remove('rarity-S', 'rarity-A', 'rarity-B', 'rarity-C', 'rarity-D');
+            targetSlot.classList.add(`rarity-${data.rarity}`, 'opened');
+            targetSlot.style.transform = 'rotate(360deg)';
+            updateLevelDisplay(targetSlot);
+            targetSlot.onclick = null;
+            saveData();
+        }
+    }
+
+    function collectBoxToSlot(targetSlot, isSpecial = false) {
+        targetSlot.classList.add('has-item');
+        targetSlot.draggable = true; 
+        targetSlot.dataset.level = 1;
+        targetSlot.dataset.isSpecial = isSpecial;
+        const img = document.createElement('img');
+        img.src = 'box.png';
+        img.className = 'item-img';
+        img.style.display = 'block';
+        const badge = document.createElement('div');
+        badge.className = 'level-badge';
+        targetSlot.appendChild(img);
+        targetSlot.appendChild(badge);
+        targetSlot.onclick = () => openAction(targetSlot);
+    }
+
+    function collectHeroToSlot(targetSlot) {
+        targetSlot.classList.add('has-item', 'opened', 'rarity-D');
+        targetSlot.draggable = true; 
+        targetSlot.dataset.level = 1;
+        targetSlot.dataset.isSpecial = false;
+        const img = document.createElement('img');
+        img.src = 'hero.png';
+        img.className = 'item-img';
+        img.style.display = 'block';
+        const badge = document.createElement('div');
+        badge.className = 'level-badge';
+        targetSlot.appendChild(img);
+        targetSlot.appendChild(badge);
+        if(!unlockedChars.includes('hero.png')) unlockedChars.push('hero.png');
+        updateLevelDisplay(targetSlot);
+    }
+
+    window.isFirstLoad = true;
+    initBase();
+    loadGameProgress(); 
+    initShop();
+    updateTimer();
+    updateVolume();
+</script>
+</body>
+</html>
